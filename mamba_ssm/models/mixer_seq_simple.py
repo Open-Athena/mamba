@@ -7,6 +7,7 @@ import os
 import copy
 
 from collections import namedtuple
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -19,6 +20,7 @@ from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.modules.block import Block
 from mamba_ssm.utils.generation import GenerationMixin
 from mamba_ssm.utils.hf import load_config_hf, load_state_dict_hf
+from mamba_ssm.distributed.gradient_checkpoints import HFGCProtocol, MCGCProtocol
 
 try:
     from mamba_ssm.ops.triton.layer_norm import RMSNorm, layer_norm_fn, rms_norm_fn
@@ -127,7 +129,7 @@ def _init_weights(
                     p /= math.sqrt(n_residuals_per_layer * n_layer)
 
 
-class MixerModel(nn.Module):
+class MixerModel(nn.Module, HFGCProtocol, MCGCProtocol):
     def __init__(
         self,
         d_model: int,
@@ -142,6 +144,7 @@ class MixerModel(nn.Module):
         initializer_cfg=None,
         fused_add_norm=False,
         residual_in_fp32=False,
+        gradient_checkpointing_stride: int = 1,
         mixer_type=None,
         attn_type=None,
         norm_type=None,
@@ -194,6 +197,9 @@ class MixerModel(nn.Module):
             d_model, eps=norm_epsilon, **factory_kwargs
         )
 
+        self.gradient_checkpointing_disable()
+        self.gradient_checkpointing_stride = gradient_checkpointing_stride
+
         self.apply(
             partial(
                 _init_weights,
@@ -203,6 +209,27 @@ class MixerModel(nn.Module):
             )
         )
 
+    def _gradient_checkpointing_indexes(self) -> list[int]:
+        return [
+            i for i in range(len(self.layers)) 
+            if i % self.gradient_checkpointing_stride == 0
+        ]
+
+    def activation_checkpointing_fn(self, module: nn.Module) -> bool:
+        for index in self._gradient_checkpointing_indexes():
+            if self.layers[index] is module:
+                return True
+        return False
+
+    def gradient_checkpointing_enable(self, gradient_checkpointing_kwargs: dict[str, Any]) -> None:
+        self.gradient_checkpointing = True
+        self.gradient_checkpointing_kwargs = gradient_checkpointing_kwargs
+
+    def gradient_checkpointing_disable(self) -> None:
+        self.gradient_checkpointing = False
+        self.gradient_checkpointing_kwargs = None
+
+        
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
         return {
             i: layer.allocate_inference_cache(batch_size, max_seqlen, dtype=dtype, **kwargs)
@@ -212,10 +239,20 @@ class MixerModel(nn.Module):
     def forward(self, input_ids, inference_params=None, **mixer_kwargs):
         hidden_states = self.embedding(input_ids)
         residual = None
-        for layer in self.layers:
-            hidden_states, residual = layer(
-                hidden_states, residual, inference_params=inference_params, **mixer_kwargs
+        checkpoint_indexes = set(self._gradient_checkpointing_indexes())
+        for index, layer in enumerate(self.layers):
+            layer_fn = partial(
+                layer, 
+                inference_params=inference_params,
+                **mixer_kwargs
             )
+            if self.gradient_checkpointing and index in checkpoint_indexes:
+                layer_fn = partial(
+                    torch.utils.checkpoint.checkpoint, 
+                    layer_fn, 
+                    **(self.gradient_checkpointing_kwargs or {}),
+                )
+            hidden_states, residual = layer_fn(hidden_states, residual)
         if not self.fused_add_norm:
             residual = (hidden_states + residual) if residual is not None else hidden_states
             hidden_states = self.norm_f(residual.to(dtype=self.norm_f.weight.dtype))
