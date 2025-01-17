@@ -37,6 +37,10 @@ def create_block(
     residual_in_fp32=False,
     fused_add_norm=False,
     layer_idx=None,
+    mixer_type=None,
+    attn_type=None,
+    norm_type=None,
+    mlp_type=None,
     device=None,
     dtype=None,
 ):
@@ -48,27 +52,35 @@ def create_block(
         attn_cfg = {}
     factory_kwargs = {"device": device, "dtype": dtype}
     if layer_idx not in attn_layer_idx:
-        # Create a copy of the config to modify
-        ssm_cfg = copy.deepcopy(ssm_cfg) if ssm_cfg is not None else {}
-        ssm_layer = ssm_cfg.pop("layer", "Mamba1")
-        if ssm_layer not in ["Mamba1", "Mamba2"]:
-            raise ValueError(f"Invalid ssm_layer: {ssm_layer}, only support Mamba1 and Mamba2")
+        if mixer_type is None:
+            # Create a copy of the config to modify
+            ssm_cfg = copy.deepcopy(ssm_cfg) if ssm_cfg is not None else {}
+            ssm_layer = ssm_cfg.pop("layer", "Mamba1")
+            if ssm_layer not in ["Mamba1", "Mamba2"]:
+                raise ValueError(f"Invalid ssm_layer: {ssm_layer}, only support Mamba1 and Mamba2")
+            mixer_type = Mamba2 if ssm_layer == "Mamba2" else Mamba
         mixer_cls = partial(
-            Mamba2 if ssm_layer == "Mamba2" else Mamba,
+            mixer_type,
             layer_idx=layer_idx,
             **ssm_cfg,
             **factory_kwargs
         )
     else:
-        mixer_cls = partial(MHA, layer_idx=layer_idx, **attn_cfg, **factory_kwargs)
+        if attn_type is None:
+            attn_type = MHA
+        mixer_cls = partial(attn_type, layer_idx=layer_idx, **attn_cfg, **factory_kwargs)
+    if norm_type is None:
+        norm_type = nn.LayerNorm if not rms_norm else RMSNorm
     norm_cls = partial(
-        nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon, **factory_kwargs
+        norm_type, eps=norm_epsilon, **factory_kwargs
     )
     if d_intermediate == 0:
         mlp_cls = nn.Identity
     else:
+        if mlp_type is None:
+            mlp_type = GatedMLP 
         mlp_cls = partial(
-            GatedMLP, hidden_features=d_intermediate, out_features=d_model, **factory_kwargs
+            mlp_type, hidden_features=d_intermediate, out_features=d_model, **factory_kwargs
         )
     block = Block(
         d_model,
@@ -130,6 +142,10 @@ class MixerModel(nn.Module):
         initializer_cfg=None,
         fused_add_norm=False,
         residual_in_fp32=False,
+        mixer_type=None,
+        attn_type=None,
+        norm_type=None,
+        mlp_type=None,
         device=None,
         dtype=None,
     ) -> None:
@@ -162,13 +178,19 @@ class MixerModel(nn.Module):
                     residual_in_fp32=residual_in_fp32,
                     fused_add_norm=fused_add_norm,
                     layer_idx=i,
+                    mixer_type=mixer_type,
+                    attn_type=attn_type,
+                    norm_type=norm_type,
+                    mlp_type=mlp_type,
                     **factory_kwargs,
                 )
                 for i in range(n_layer)
             ]
         )
 
-        self.norm_f = (nn.LayerNorm if not rms_norm else RMSNorm)(
+        if norm_type is None:
+            norm_type = nn.LayerNorm if not rms_norm else RMSNorm
+        self.norm_f = norm_type(
             d_model, eps=norm_epsilon, **factory_kwargs
         )
 
@@ -218,6 +240,10 @@ class MambaLMHeadModel(nn.Module, GenerationMixin):
         self,
         config: MambaConfig,
         initializer_cfg=None,
+        mixer_type=None,
+        attn_type=None,
+        norm_type=None,
+        mlp_type=None,
         device=None,
         dtype=None,
     ) -> None:
@@ -250,6 +276,10 @@ class MambaLMHeadModel(nn.Module, GenerationMixin):
             initializer_cfg=initializer_cfg,
             fused_add_norm=fused_add_norm,
             residual_in_fp32=residual_in_fp32,
+            mixer_type=mixer_type,
+            attn_type=attn_type,
+            norm_type=norm_type,
+            mlp_type=mlp_type,
             **factory_kwargs,
         )
         self.lm_head = nn.Linear(d_model, vocab_size, bias=False, **factory_kwargs)
