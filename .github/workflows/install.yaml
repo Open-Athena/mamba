@@ -1,8 +1,15 @@
-name: pip install test
+name: EC2 GPU runner test
 on:
   workflow_dispatch:
+permissions:
+  id-token: write  # Required for AWS OIDC authentication
+  contents: read   # Required for actions/checkout
 jobs:
-  placeholder:
-    runs-on: ubuntu-latest
+  ec2:
+    uses: Open-Athena/ec2/.github/workflows/runner.yml@dev
+    secrets: inherit
+  gpu-test:
+    needs: ec2
+    runs-on: ${{ needs.ec2.outputs.instance }}
     steps:
-      - run: echo "Placeholder workflow"
+      - run: nvidia-smi
