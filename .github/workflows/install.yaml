@@ -7,6 +7,16 @@ on:
         required: false
         type: string
         default: "2.2.5"
+      n_sleeps:
+        description: "Number of sleep iterations to perform"
+        required: false
+        type: number
+        default: 0
+      sleep_s:
+        description: "Duration of each sleep in seconds"
+        required: false
+        type: number
+        default: 60
 permissions:
   id-token: write
   contents: read
@@ -19,4 +29,14 @@ jobs:
     runs-on: ${{ needs.ec2.outputs.instance }}
     steps:
       - run: pip install mamba_ssm==${{ inputs.version }}
+      - name: Sleep (${{ inputs.n_sleeps }}x${{ inputs.sleep_s }}s)
+        if: ${{ inputs.n_sleeps > 0 }}
+        run: |
+          echo "=== Sleep Loop ==="
+          echo "Performing ${{ inputs.n_sleeps }} sleep iterations of ${{ inputs.sleep_s }} seconds each"
+          for i in $(seq 1 ${{ inputs.n_sleeps }}); do
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Sleep iteration $i/${{ inputs.n_sleeps }} - sleeping for ${{ inputs.sleep_s }} seconds..."
+            sleep ${{ inputs.sleep_s }}
+          done
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] Sleep loop completed"
       - run: python -c 'import mamba_ssm; print(mamba_ssm.__version__)'
