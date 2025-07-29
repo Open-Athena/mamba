@@ -1,9 +1,15 @@
-name: EC2 GPU runner test
+name: "`pip install mamba_ssm` test"
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version of mamba_ssm to install"
+        required: false
+        type: string
+        default: "2.2.5"
 permissions:
-  id-token: write  # Required for AWS OIDC authentication
-  contents: read   # Required for actions/checkout
+  id-token: write
+  contents: read
 jobs:
   ec2:
     uses: Open-Athena/ec2/.github/workflows/runner.yml@dev
@@ -12,4 +18,5 @@ jobs:
     needs: ec2
     runs-on: ${{ needs.ec2.outputs.instance }}
     steps:
-      - run: nvidia-smi
+      - run: pip install mamba_ssm==${{ inputs.version }}
+      - run: python -c 'import mamba_ssm; print(mamba_ssm.__version__)'
