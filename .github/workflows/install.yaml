@@ -1,8 +1,46 @@
-name: pip install test
+name: "Test pip-installing mamba_ssm"
 on:
   workflow_dispatch:
+    inputs:
+      python:
+        description: "Python version to use"
+        required: false
+        type: string
+        default: "3.11.13"
+      ebs_gb:
+        description: "EBS volume size in GB (default: 60)"
+        required: false
+        type: number
+        default: 80
+permissions:
+  id-token: write
+  contents: read
 jobs:
-  placeholder:
-    runs-on: ubuntu-latest
+  ec2:
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    secrets: inherit
+    with:
+      ec2_root_device_size: ${{ inputs.ebs_gb }}
+  gpu-test:
+    name: Test mamba_ssm==${{ matrix.mamba_version }}
+    needs: ec2
+    runs-on: ${{ needs.ec2.outputs.id }}
+    strategy:
+      matrix:
+        mamba_version: ["2.2.0", "2.2.1", "2.2.2", "2.2.3post2", "2.2.4", "2.2.5"]
+      fail-fast: false
     steps:
-      - run: echo "Placeholder workflow"
+      - name: Setup conda
+        run: |
+          echo "export PATH=/opt/conda/bin:$PATH" >> $GITHUB_ENV
+          /opt/conda/bin/conda init bash
+      - name: Create conda environment for mamba_ssm==${{ matrix.mamba_version }}
+        run: |
+          export PATH=/opt/conda/bin:$PATH
+          conda create -n mamba-${{ matrix.mamba_version }} python=${{ inputs.python }} -y
+      - name: Install and test mamba_ssm==${{ matrix.mamba_version }}
+        run: |
+          export PATH=/opt/conda/bin:$PATH
+          source /opt/conda/bin/activate mamba-${{ matrix.mamba_version }}
+          pip install mamba_ssm==${{ matrix.mamba_version }}
+          python -c 'import mamba_ssm; print(f"mamba_ssm {mamba_ssm.__version__} installed successfully")'
