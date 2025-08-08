@@ -27,7 +27,7 @@ jobs:
     runs-on: ${{ needs.ec2.outputs.id }}
     strategy:
       matrix:
-        mamba_version: ["2.2.0", "2.2.1", "2.2.2", "2.2.3post2", "2.2.4", "2.2.5"]
+        mamba_version: ["2.2.5"]  # Temporarily testing only 2.2.5
       fail-fast: false
     steps:
       - name: Setup conda
@@ -38,6 +38,24 @@ jobs:
         run: |
           export PATH=/opt/conda/bin:$PATH
           conda create -n mamba-${{ matrix.mamba_version }} python=${{ inputs.python }} -y
+      - name: Debug pip and platform info
+        run: |
+          export PATH=/opt/conda/bin:$PATH
+          source /opt/conda/bin/activate mamba-${{ matrix.mamba_version }}
+          echo "=== Python and pip versions ==="
+          python --version
+          pip --version
+          echo -e "\n=== Platform info ==="
+          python -c "import platform; print(f'Platform: {platform.platform()}')"
+          python -c "import platform; print(f'Machine: {platform.machine()}')"
+          python -c "import platform; print(f'Processor: {platform.processor()}')"
+          echo -e "\n=== glibc version ==="
+          ldd --version | head -n1
+          echo -e "\n=== pip debug info ==="
+          python -m pip debug --verbose
+          echo -e "\n=== CUDA info ==="
+          nvcc --version || echo "nvcc not found"
+          ls -la /usr/local/cuda* 2>/dev/null || echo "No CUDA installations found in /usr/local/"
       - name: Install and test mamba_ssm==${{ matrix.mamba_version }}
         run: |
           export PATH=/opt/conda/bin:$PATH
