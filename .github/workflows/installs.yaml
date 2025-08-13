@@ -21,20 +21,17 @@ jobs:
     strategy:
       matrix:
         include:
-          # Use AMI's PyTorch 2.4.1 for these versions
-          - { "mamba_version": "2.2.0"     , use_system_torch: true }
-          - { "mamba_version": "2.2.1"     , use_system_torch: true }
-          - { "mamba_version": "2.2.2"     , use_system_torch: true }
-          # These need PyTorch 2.6/2.7, will need to upgrade
-          - { "mamba_version": "2.2.3post2", use_system_torch: false, torch_version: "2.6" }
-          - { "mamba_version": "2.2.4"     , use_system_torch: false, torch_version: "2.6" }
-          - { "mamba_version": "2.2.5"     , use_system_torch: false, torch_version: "2.7" }
+          # All versions support PyTorch 2.4, use AMI's PyTorch 2.4.1
+          - { "mamba_version": "2.2.0" }
+          - { "mamba_version": "2.2.1" }
+          - { "mamba_version": "2.2.2" }
+          - { "mamba_version": "2.2.3post2" }
+          - { "mamba_version": "2.2.4" }
+          - { "mamba_version": "2.2.5" }
       fail-fast: false
     uses: ./.github/workflows/install.yaml
     secrets: inherit
     with:
       mamba_version: ${{ matrix.mamba_version }}
-      use_system_torch: ${{ matrix.use_system_torch }}
-      torch_version: ${{ matrix.torch_version || '2.4' }}
       python: ${{ inputs.python }}
       ebs_gb: ${{ inputs.ebs_gb }}

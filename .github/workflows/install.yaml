@@ -7,16 +7,6 @@ on:
         required: true
         type: string
         default: "2.2.5"
-      use_system_torch:
-        description: "Use PyTorch from AMI instead of conda"
-        required: false
-        type: boolean
-        default: false
-      torch_version:
-        description: "PyTorch version to use (when not using system)"
-        required: false
-        type: string
-        default: "2.4"
       python:
         description: "Python version to use"
         required: false
@@ -33,16 +23,6 @@ on:
         description: "Mamba version to test"
         required: true
         type: string
-      use_system_torch:
-        description: "Use PyTorch from AMI instead of conda"
-        required: false
-        type: boolean
-        default: false
-      torch_version:
-        description: "PyTorch version to use (when not using system)"
-        required: false
-        type: string
-        default: "2.4"
       python:
         description: "Python version to use"
         required: false
@@ -69,43 +49,23 @@ jobs:
     steps:
       - name: Setup Python environment
         run: |
-          if [[ "${{ inputs.use_system_torch }}" == "true" ]]; then
-            echo "Using system PyTorch from AMI"
-            # The AMI has PyTorch installed in the system Python
-            echo "export PATH=/usr/bin:$PATH" >> $GITHUB_ENV
-          else
-            echo "Setting up conda environment"
-            echo "export PATH=/opt/conda/bin:$PATH" >> $GITHUB_ENV
-            /opt/conda/bin/conda init bash
-          fi
+          echo "Using system PyTorch 2.4.1 from AMI"
+          # The AMI has PyTorch installed in the system Python
+          echo "export PATH=/usr/bin:$PATH" >> $GITHUB_ENV
       - name: Create environment for mamba_ssm==${{ inputs.mamba_version }}
         run: |
-          if [[ "${{ inputs.use_system_torch }}" == "true" ]]; then
-            # Use system Python with pre-installed PyTorch 2.4.1
-            echo "Using system Python with PyTorch 2.4.1"
-            # Check what Python version the AMI has
-            python3 --version
-            # Create a virtual env that inherits system packages
-            python3 -m venv --system-site-packages /tmp/mamba-${{ inputs.mamba_version }}
-            source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
-            echo "VIRTUAL_ENV=/tmp/mamba-${{ inputs.mamba_version }}" >> $GITHUB_ENV
-            echo "/tmp/mamba-${{ inputs.mamba_version }}/bin" >> $GITHUB_PATH
-          else
-            # Create conda environment and install specific PyTorch version
-            export PATH=/opt/conda/bin:$PATH
-            conda create -n mamba-${{ inputs.mamba_version }} python=${{ inputs.python }} -y
-            source /opt/conda/bin/activate mamba-${{ inputs.mamba_version }}
-            # For PyTorch 2.6/2.7, use pip instead of conda (as per PyTorch docs)
-            pip install torch==${{ inputs.torch_version }}.* torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-          fi
+          # Use system Python with pre-installed PyTorch 2.4.1
+          echo "Using AMI's PyTorch 2.4.1 with CUDA 12.4"
+          # Check Python version on the AMI
+          python3 --version
+          # Create a virtual env that inherits system packages
+          python3 -m venv --system-site-packages /tmp/mamba-${{ inputs.mamba_version }}
+          source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
+          echo "VIRTUAL_ENV=/tmp/mamba-${{ inputs.mamba_version }}" >> $GITHUB_ENV
+          echo "/tmp/mamba-${{ inputs.mamba_version }}/bin" >> $GITHUB_PATH
       - name: Debug pip and platform info
         run: |
-          if [[ "${{ inputs.use_system_torch }}" == "true" ]]; then
-            source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
-          else
-            export PATH=/opt/conda/bin:$PATH
-            source /opt/conda/bin/activate mamba-${{ inputs.mamba_version }}
-          fi
+          source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
           echo "=== Python and pip versions ==="
           python --version
           pip --version
@@ -125,19 +85,9 @@ jobs:
           ls -la /usr/local/cuda* 2>/dev/null || echo "No CUDA installations found in /usr/local/"
       - name: Install and test mamba_ssm==${{ inputs.mamba_version }}
         run: |
-          if [[ "${{ inputs.use_system_torch }}" == "true" ]]; then
-            source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
-          else
-            export PATH=/opt/conda/bin:$PATH
-            source /opt/conda/bin/activate mamba-${{ inputs.mamba_version }}
-          fi
+          source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
           time pip install -v mamba_ssm==${{ inputs.mamba_version }}
       - name: Verify mamba_ssm installation
         run: |
-          if [[ "${{ inputs.use_system_torch }}" == "true" ]]; then
-            source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
-          else
-            export PATH=/opt/conda/bin:$PATH
-            source /opt/conda/bin/activate mamba-${{ inputs.mamba_version }}
-          fi
+          source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
           python -c 'import mamba_ssm; print(f"mamba_ssm {mamba_ssm.__version__} installed successfully")'
