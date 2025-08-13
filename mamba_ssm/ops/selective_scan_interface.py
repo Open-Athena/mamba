@@ -246,7 +246,7 @@ class MambaInnerFn(torch.autograd.Function):
                 C = C.contiguous()
         if D is not None:
             D = D.contiguous()
-            
+
         if b_rms_weight is not None:
             B = rearrange(B, "b 1 dstate l -> (b l) dstate", l=L).contiguous()
             B = rms_norm_forward(B, b_rms_weight, bias=None, eps=b_c_dt_rms_eps)
@@ -259,7 +259,7 @@ class MambaInnerFn(torch.autograd.Function):
             delta = rearrange(delta, "b d l -> (b l) d", l=L).contiguous()
             delta = rms_norm_forward(delta, dt_rms_weight, bias=None, eps=b_c_dt_rms_eps)
             delta = rearrange(delta, "(b l) d -> b d l", l=L).contiguous()
-        
+
         out, scan_intermediates, out_z = selective_scan_cuda.fwd(
             conv1d_out, delta, A, B, C, D, z, delta_bias, delta_softplus
         )
@@ -314,7 +314,7 @@ class MambaInnerFn(torch.autograd.Function):
                     C, ctx.c_rms_weight, None, ctx.b_c_dt_rms_eps
                 )
                 C = rearrange(C, "(b l) dstate -> b 1 dstate l", l=L).contiguous()
-            
+
         # The kernel supports passing in a pre-allocated dz (e.g., in case we want to fuse the
         # backward of selective_scan_cuda with the backward of chunk).
         dxz = torch.empty_like(xz)  # (batch, dim, seqlen)
