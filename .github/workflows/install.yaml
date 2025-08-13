@@ -52,6 +52,14 @@ jobs:
           echo "Using system PyTorch 2.4.1 from AMI"
           # The AMI has PyTorch installed in the system Python
           echo "export PATH=/usr/bin:$PATH" >> $GITHUB_ENV
+
+          # Install python3-venv if not available (needed on EC2 AMI)
+          # Test by actually creating a venv, not just checking --help
+          if ! python3 -m venv /tmp/test-venv 2>/dev/null; then
+            echo "Installing python3-venv package"
+            sudo apt-get update && sudo apt-get install -y python3-venv
+          fi
+          rm -rf /tmp/test-venv
       - name: Create environment for mamba_ssm==${{ inputs.mamba_version }}
         run: |
           # Use system Python with pre-installed PyTorch 2.4.1
