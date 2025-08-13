@@ -77,5 +77,6 @@ jobs:
         run: |
           export PATH=/opt/conda/bin:$PATH
           source /opt/conda/bin/activate mamba-${{ inputs.mamba_version }}
-          pip install mamba_ssm==${{ inputs.mamba_version }}
+          echo "Starting pip install with verbose output..."
+          time pip install -v mamba_ssm==${{ inputs.mamba_version }}
           python -c 'import mamba_ssm; print(f"mamba_ssm {mamba_ssm.__version__} installed successfully")'
