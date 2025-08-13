@@ -65,7 +65,7 @@ jobs:
         run: |
           export PATH=/opt/conda/bin:$PATH
           # Pin PyTorch to specific version for prebuilt wheel compatibility
-          # Without this, conda installs PyTorch 2.8 which forces mamba-ssm to build from source (50+ minutes)
+          # Without this, conda installs PyTorch 2.8 which causes mamba-ssm to build from source (50+ minutes)
           conda create -n mamba-${{ inputs.mamba_version }} python=${{ inputs.python }} pytorch=${{ inputs.torch_version }}.* pytorch-cuda=12.4 -c pytorch -c nvidia -y
       - name: Debug pip and platform info
         run: |
@@ -93,6 +93,8 @@ jobs:
           echo "Checking for prebuilt wheels..."
           pip index versions mamba-ssm || true
           echo "Installing mamba_ssm..."
-          time pip install -vv mamba_ssm==${{ inputs.mamba_version }} 2>&1 | tee install.log | grep -E "Downloading|Building|Compiling|wheel|cuda|nvcc|HTTPError" || true
+          time pip install -v mamba_ssm==${{ inputs.mamba_version }}
+      - name: Verify mamba_ssm installation
+        run: |
           echo "Installation complete. Checking package..."
           python -c 'import mamba_ssm; print(f"mamba_ssm {mamba_ssm.__version__} installed successfully")'
