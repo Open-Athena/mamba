@@ -42,6 +42,7 @@ jobs:
     secrets: inherit
     with:
       ec2_root_device_size: ${{ inputs.ebs_gb }}
+      instance_name: "$repo/$name==${{ inputs.mamba_version }} (#$run_number)"
   install:
     name: Test mamba_ssm==${{ inputs.mamba_version }}
     needs: ec2
