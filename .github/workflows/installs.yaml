@@ -17,14 +17,21 @@ permissions:
   contents: read
 jobs:
   installs:
-    name: Test mamba_ssm==${{ matrix.mamba_version }}
+    name: Test mamba_ssm==${{ matrix.mamba_version }} (torch=${{ matrix.torch_version }})
     strategy:
       matrix:
-        mamba_version: ["2.2.0", "2.2.1", "2.2.2", "2.2.3post2", "2.2.4", "2.2.5"]
+        include:
+          - { "mamba_version": "2.2.0"     , torch_version: "2.4" }
+          - { "mamba_version": "2.2.1"     , torch_version: "2.4" }
+          - { "mamba_version": "2.2.2"     , torch_version: "2.4" }
+          - { "mamba_version": "2.2.3post2", torch_version: "2.6" }
+          - { "mamba_version": "2.2.4"     , torch_version: "2.6" }
+          - { "mamba_version": "2.2.5"     , torch_version: "2.7" }
       fail-fast: false
     uses: ./.github/workflows/install.yaml
     secrets: inherit
     with:
       mamba_version: ${{ matrix.mamba_version }}
+      torch_version: ${{ matrix.torch_version }}
       python: ${{ inputs.python }}
       ebs_gb: ${{ inputs.ebs_gb }}

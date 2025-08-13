@@ -7,6 +7,11 @@ on:
         required: true
         type: string
         default: "2.2.5"
+      torch_version:
+        description: "PyTorch version to use"
+        required: false
+        type: string
+        default: "2.7"
       python:
         description: "Python version to use"
         required: false
@@ -23,6 +28,11 @@ on:
         description: "Mamba version to test"
         required: true
         type: string
+      torch_version:
+        description: "PyTorch version to use"
+        required: false
+        type: string
+        default: "2.4"
       python:
         description: "Python version to use"
         required: false
@@ -54,7 +64,9 @@ jobs:
       - name: Create conda environment for mamba_ssm==${{ inputs.mamba_version }}
         run: |
           export PATH=/opt/conda/bin:$PATH
-          conda create -n mamba-${{ inputs.mamba_version }} python=${{ inputs.python }} -y
+          # Pin PyTorch to specific version for prebuilt wheel compatibility
+          # Without this, conda installs PyTorch 2.8 which forces mamba-ssm to build from source (50+ minutes)
+          conda create -n mamba-${{ inputs.mamba_version }} python=${{ inputs.python }} pytorch=${{ inputs.torch_version }}.* pytorch-cuda=12.4 -c pytorch -c nvidia -y
       - name: Debug pip and platform info
         run: |
           export PATH=/opt/conda/bin:$PATH
@@ -78,5 +90,9 @@ jobs:
           export PATH=/opt/conda/bin:$PATH
           source /opt/conda/bin/activate mamba-${{ inputs.mamba_version }}
           echo "Starting pip install with verbose output..."
-          time pip install -v mamba_ssm==${{ inputs.mamba_version }}
+          echo "Checking for prebuilt wheels..."
+          pip index versions mamba-ssm || true
+          echo "Installing mamba_ssm..."
+          time pip install -vv mamba_ssm==${{ inputs.mamba_version }} 2>&1 | tee install.log | grep -E "Downloading|Building|Compiling|wheel|cuda|nvcc|HTTPError" || true
+          echo "Installation complete. Checking package..."
           python -c 'import mamba_ssm; print(f"mamba_ssm {mamba_ssm.__version__} installed successfully")'
