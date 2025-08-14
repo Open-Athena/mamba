@@ -7,11 +7,6 @@ on:
         required: false
         type: string
         default: "3.11.13"
-      ebs_gb:
-        description: "EBS volume size in GB (default: 60)"
-        required: false
-        type: string
-        default: "80"
 permissions:
   id-token: write
   contents: read
@@ -34,4 +29,3 @@ jobs:
     with:
       mamba_version: ${{ matrix.mamba_version }}
       python: ${{ inputs.python }}
-      ebs_gb: ${{ inputs.ebs_gb }}
