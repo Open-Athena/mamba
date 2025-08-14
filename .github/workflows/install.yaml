@@ -55,21 +55,13 @@ jobs:
           source /opt/conda/bin/activate pytorch
           which python
           python --version
-      - name: Create environment for mamba_ssm==${{ inputs.mamba_version }}
-        run: |
-          # Activate the conda pytorch environment that has PyTorch 2.4.1
-          source /opt/conda/bin/activate pytorch
-          echo "Using PyTorch from conda pytorch environment:"
           python -c "import torch; print(f'PyTorch: {torch.__version__}, CUDA: {torch.version.cuda}')"
 
-          # Create a virtual env that inherits packages from the conda environment
-          python -m venv --system-site-packages /tmp/mamba-${{ inputs.mamba_version }}
-          source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
-          echo "VIRTUAL_ENV=/tmp/mamba-${{ inputs.mamba_version }}" >> $GITHUB_ENV
-          echo "/tmp/mamba-${{ inputs.mamba_version }}/bin" >> $GITHUB_PATH
+          # Set up environment for GitHub Actions to use conda env
+          echo "/opt/conda/envs/pytorch/bin" >> $GITHUB_PATH
+          echo "CONDA_DEFAULT_ENV=pytorch" >> $GITHUB_ENV
       - name: Debug pip and platform info
         run: |
-          source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
           echo "=== Python and pip versions ==="
           python --version
           pip --version
@@ -89,12 +81,9 @@ jobs:
           ls -la /usr/local/cuda* 2>/dev/null || echo "No CUDA installations found in /usr/local/"
       - name: Install and test mamba_ssm==${{ inputs.mamba_version }}
         run: |
-          source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
-          # First ensure torch 2.4.1 is installed (should already be from conda env)
-          pip install torch==2.4.1
-          # Then install mamba_ssm without build isolation to use existing torch
+          # Install mamba_ssm without build isolation to use existing torch from conda env
+          # No need to reinstall torch since it's already in the conda environment
           time pip install -v --no-build-isolation mamba_ssm==${{ inputs.mamba_version }}
       - name: Verify mamba_ssm installation
         run: |
-          source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
           python -c 'import mamba_ssm; print(f"mamba_ssm {mamba_ssm.__version__} installed successfully")'
