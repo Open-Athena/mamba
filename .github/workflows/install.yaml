@@ -90,8 +90,10 @@ jobs:
       - name: Install and test mamba_ssm==${{ inputs.mamba_version }}
         run: |
           source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
-          # Pin torch to the conda environment version to prevent pip from upgrading it during build
-          time pip install -v torch==2.4.1 mamba_ssm==${{ inputs.mamba_version }}
+          # First ensure torch 2.4.1 is installed (should already be from conda env)
+          pip install torch==2.4.1
+          # Then install mamba_ssm without build isolation to use existing torch
+          time pip install -v --no-build-isolation mamba_ssm==${{ inputs.mamba_version }}
       - name: Verify mamba_ssm installation
         run: |
           source /tmp/mamba-${{ inputs.mamba_version }}/bin/activate
