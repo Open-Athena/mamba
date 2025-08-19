@@ -26,8 +26,9 @@ permissions:
 jobs:
   ec2:
     name: Start EC2 runner
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@rw/hooks
     with:
+      action_ref: rw/hooks
       ec2_instance_type: ${{ inputs.instance_type || 'g6.2xlarge' }}
       ec2_image_id: ami-0aee7b90d684e107d # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.4.1 (Ubuntu 22.04) 20250623
     secrets:
