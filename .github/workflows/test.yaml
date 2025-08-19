@@ -45,6 +45,8 @@ jobs:
       ec2_image_id: ${{ inputs.ec2_image_id || (startsWith(inputs.instance_type || 'g6.2xlarge', 'g4ad') && 'ami-06b21ccaeff8cd686' || 'ami-0aee7b90d684e107d') }}
       # ami-06b21ccaeff8cd686: Ubuntu 22.04 LTS x86_64 (us-east-1) - for AMD GPU instances
       # ami-0aee7b90d684e107d: Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.4.1 (Ubuntu 22.04) 20250623
+      runner_initial_grace_period: 600
+      runner_registration_timeout: 600
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
   test:
